@@ -33,6 +33,7 @@ LegalBot is a Telegram bot for assisting users with legal claims in Russia. It c
 ## Running Locally
 ```
 cp .env.example .env
+# set TELEGRAM_SECRET_TOKEN to the value configured in your bot settings
 docker compose up --build
 ```
 

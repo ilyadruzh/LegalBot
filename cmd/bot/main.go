@@ -13,8 +13,16 @@ func main() {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
+	secret := os.Getenv("TELEGRAM_SECRET_TOKEN")
+	if secret == "" {
+		logger.Warn("TELEGRAM_SECRET_TOKEN not set")
+	}
 	logger.Info("starting bot", "addr", *addr)
 	if err := http.ListenAndServe(*addr, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !checkSecretToken(r, secret, logger) {
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
 		if reqID := r.Header.Get("X-Request-ID"); reqID != "" {
 			logger.Info("ping", "request_id", reqID)
 		}
