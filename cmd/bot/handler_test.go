@@ -97,7 +97,7 @@ func TestHandleClaimOpenRouterError(t *testing.T) {
 	if repo.data != "" {
 		t.Errorf("repo should not be called")
 	}
-	if tg.text != "temporary error, please try again later" {
+	if tg.text != temporaryErrorMsg {
 		t.Errorf("unexpected message %s", tg.text)
 	}
 }
@@ -113,7 +113,7 @@ func TestHandleClaimRepoError(t *testing.T) {
 	if repo.chatID != 1 || repo.data != "x" {
 		t.Errorf("repo not called correctly")
 	}
-	if tg.text != "temporary error, please try again later" {
+	if tg.text != temporaryErrorMsg {
 		t.Errorf("unexpected message %s", tg.text)
 	}
 }
@@ -162,7 +162,7 @@ func TestHandleRecentRepoError(t *testing.T) {
 	if err := handleRecent(context.Background(), tg, repo, 10); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tg.text != "temporary error, please try again later" {
+	if tg.text != temporaryErrorMsg {
 		t.Errorf("unexpected message %s", tg.text)
 	}
 }
@@ -187,7 +187,7 @@ func TestHandleDeleteRepoError(t *testing.T) {
 	if err := handleDelete(context.Background(), tg, repo, 99); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tg.text != "temporary error, please try again later" {
+	if tg.text != temporaryErrorMsg {
 		t.Errorf("unexpected message %s", tg.text)
 	}
 }
