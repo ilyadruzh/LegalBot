@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"time"
@@ -15,6 +16,7 @@ type Client struct {
 	APIKey   string
 	Endpoint string
 	HTTP     *http.Client
+	Logger   *slog.Logger
 }
 
 // New creates a new OpenRouter client using the provided API key. Timeout can be
@@ -31,7 +33,7 @@ func New(apiKey string) *Client {
 	if v := os.Getenv("OPENROUTER_ENDPOINT"); v != "" {
 		endpoint = v
 	}
-	return &Client{APIKey: apiKey, Endpoint: endpoint, HTTP: &http.Client{Timeout: timeout}}
+	return &Client{APIKey: apiKey, Endpoint: endpoint, HTTP: &http.Client{Timeout: timeout}, Logger: slog.Default()}
 }
 
 // WithTimeout allows customizing HTTP client timeout when creating a new
@@ -43,6 +45,11 @@ func WithTimeout(d time.Duration) func(*Client) {
 // WithEndpoint allows customizing API endpoint when creating a new client.
 func WithEndpoint(u string) func(*Client) {
 	return func(c *Client) { c.Endpoint = u }
+}
+
+// WithLogger allows setting a custom logger when creating a new client.
+func WithLogger(l *slog.Logger) func(*Client) {
+	return func(c *Client) { c.Logger = l }
 }
 
 // NewWithOptions creates a new client and applies given options.
@@ -60,24 +67,36 @@ var defaultEndpoint = "https://openrouter.ai/v1/chat/completions"
 func (c *Client) ChatCompletion(ctx context.Context, prompt string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Endpoint, bytes.NewBufferString(prompt))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("new request: %w", err)
 	}
 	req.Header.Set("Authorization", c.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
+	if c.Logger != nil {
+		if reqID, _ := ctx.Value("request_id").(string); reqID != "" {
+			c.Logger.Info("openrouter request", "request_id", reqID)
+		}
+	}
+
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("read body: %w", err)
 	}
 
 	if resp.StatusCode >= http.StatusBadRequest {
 		return "", fmt.Errorf("openrouter: status %d: %s", resp.StatusCode, string(body))
+	}
+
+	if c.Logger != nil {
+		if reqID, _ := ctx.Value("request_id").(string); reqID != "" {
+			c.Logger.Info("openrouter response", "request_id", reqID)
+		}
 	}
 
 	return string(body), nil
