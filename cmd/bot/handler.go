@@ -7,24 +7,43 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sync"
 
 	"legalbot/internal/db"
 )
 
-// langPref stores user language preferences.
-var langPref = map[int64]string{}
+// langPrefs stores user language preferences using a mutex for safe concurrent access.
+type langPrefs struct {
+	mu sync.RWMutex
+	m  map[int64]string
+}
+
+func (l *langPrefs) set(id int64, lang string) {
+	l.mu.Lock()
+	l.m[id] = lang
+	l.mu.Unlock()
+}
+
+func (l *langPrefs) get(id int64) string {
+	l.mu.RLock()
+	v, ok := l.m[id]
+	l.mu.RUnlock()
+	if ok {
+		return v
+	}
+	return "en"
+}
+
+var langPref = langPrefs{m: map[int64]string{}}
 
 // handleLang changes the language preference for a chat.
 func handleLang(chatID int64, lang string) {
-	langPref[chatID] = lang
+	langPref.set(chatID, lang)
 }
 
 // langFor returns language preference or default "en".
 func langFor(chatID int64) string {
-	if l, ok := langPref[chatID]; ok {
-		return l
-	}
-	return "en"
+	return langPref.get(chatID)
 }
 
 type TelegramSender interface {

@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 
 	"log/slog"
@@ -129,6 +131,7 @@ func TestHandleClaimTelegramError(t *testing.T) {
 }
 
 func TestHandleLang(t *testing.T) {
+	langPref = langPrefs{m: map[int64]string{}}
 	handleLang(1, "ru")
 	if langFor(1) != "ru" {
 		t.Fatalf("expected ru, got %s", langFor(1))
@@ -136,8 +139,32 @@ func TestHandleLang(t *testing.T) {
 }
 
 func TestLangForDefault(t *testing.T) {
+	langPref = langPrefs{m: map[int64]string{}}
 	if langFor(99) != "en" {
 		t.Fatalf("expected default en")
+	}
+}
+
+func TestLangConcurrentAccess(t *testing.T) {
+	langPref = langPrefs{m: map[int64]string{}}
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(2)
+		id := int64(i % 5)
+		go func(id int64, n int) {
+			defer wg.Done()
+			handleLang(id, fmt.Sprintf("l%v", n))
+		}(id, i)
+		go func(id int64) {
+			defer wg.Done()
+			_ = langFor(id)
+		}(id)
+	}
+	wg.Wait()
+	for i := int64(0); i < 5; i++ {
+		if v := langFor(i); v == "en" {
+			t.Fatalf("expected lang for %d, got default", i)
+		}
 	}
 }
 
