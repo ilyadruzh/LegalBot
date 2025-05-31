@@ -26,6 +26,7 @@ func TestSendMessageSuccess(t *testing.T) {
 			t.Errorf("unexpected form: %v", r.Form)
 		}
 		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"ok":true}`))
 	}))
 	defer srv.Close()
 
@@ -41,7 +42,7 @@ func TestSendMessageSuccess(t *testing.T) {
 	}
 }
 
-func TestSendMessageError(t *testing.T) {
+func TestSendMessageHTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "boom", http.StatusTeapot)
 	}))
@@ -57,5 +58,24 @@ func TestSendMessageError(t *testing.T) {
 	err := c.SendMessage(ctx, 1, "hi")
 	if err == nil || !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("expected error containing boom, got %v", err)
+	}
+}
+
+func TestSendMessageAPIFailure(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"ok":false,"description":"fail"}`))
+	}))
+	defer srv.Close()
+
+	old := apiURL
+	apiURL = srv.URL
+	defer func() { apiURL = old }()
+
+	c := New("TOKEN")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	err := c.SendMessage(ctx, 1, "hi")
+	if err == nil || !strings.Contains(err.Error(), "fail") {
+		t.Fatalf("expected error containing fail, got %v", err)
 	}
 }
