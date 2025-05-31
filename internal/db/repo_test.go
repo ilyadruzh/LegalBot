@@ -59,3 +59,52 @@ func TestRepository_SaveAndGet(t *testing.T) {
 		t.Fatalf("unexpected result: %+v", got)
 	}
 }
+
+func TestRepository_Delete(t *testing.T) {
+	ctx := context.Background()
+	container, err := tc.GenericContainer(ctx, tc.GenericContainerRequest{
+		ContainerRequest: tc.ContainerRequest{
+			Image:        "postgres:16",
+			Env:          map[string]string{"POSTGRES_PASSWORD": "pass"},
+			ExposedPorts: []string{"5432/tcp"},
+			WaitingFor:   wait.ForListeningPort("5432/tcp"),
+		},
+		Started: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer container.Terminate(ctx)
+
+	host, err := container.Host(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := container.MappedPort(ctx, "5432/tcp")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	os.Setenv("POSTGRES_DSN", fmt.Sprintf("postgres://postgres:pass@%s:%s/postgres?sslmode=disable", host, port.Port()))
+
+	repo, err := New(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+
+	if _, err := repo.pool.Exec(ctx, `CREATE TABLE bot_results (id bigserial primary key, chat_id bigint, data text, created_at timestamptz default now())`); err != nil {
+		t.Fatal(err)
+	}
+
+	id, err := repo.SaveResult(ctx, 1, "foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.DeleteResult(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.GetResult(ctx, id); err == nil {
+		t.Fatalf("expected error after delete")
+	}
+}

@@ -3,10 +3,11 @@
 LegalBot is a Telegram bot for assisting users with legal claims in Russia. It collects the user's problem, builds a "golden" prompt for OpenRouter, generates advice along with PDF and DOCX documents, and sends them back via Telegram.
 
 ## Features
-- Commands: `/start`, `/help`, `/claim`, `/status`
+- Commands: `/start`, `/help`, `/claim`, `/status`, `/delete`
 - Input text up to 8000 characters
 - Rate limit: 10 requests per minute per user
 - Generates PDF and DOCX versions of claim letters and lawsuits
+- [Data policy](DATA_POLICY.md) and `/delete` command for removing history
 
 ## Repository Structure
 ```

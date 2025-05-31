@@ -64,3 +64,9 @@ func (r *Repository) GetResult(ctx context.Context, id int64) (*Result, error) {
 	}
 	return &res, nil
 }
+
+// DeleteResult removes a result and returns an error if any.
+func (r *Repository) DeleteResult(ctx context.Context, id int64) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM bot_results WHERE id=$1`, id)
+	return err
+}
