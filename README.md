@@ -37,6 +37,8 @@ cp .env.example .env
 docker compose up --build
 ```
 
+`DOCS_BASE_URL` can be used to customize the base URL for document links.
+
 ## Linting
 ```bash
 make lint

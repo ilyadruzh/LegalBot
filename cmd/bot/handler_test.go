@@ -144,7 +144,8 @@ func TestLangForDefault(t *testing.T) {
 func TestHandleRecent(t *testing.T) {
 	tg := &mockTelegram{}
 	repo := &mockRepo{results: []db.Result{{ID: 1}, {ID: 2}}}
-	docsBaseURL = "http://d"
+	t.Setenv("DOCS_BASE_URL", "http://d")
+	docsBaseURL = loadDocsBaseURL()
 	if err := handleRecent(context.Background(), tg, repo, 10); err != nil {
 		t.Fatal(err)
 	}
