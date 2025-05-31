@@ -46,6 +46,10 @@ type HistoryDeleter interface {
 	DeleteHistory(ctx context.Context, chatID int64) error
 }
 
+type RateLimiter interface {
+	Allow(chatID int64) bool
+}
+
 var docsBaseURL = "https://example.com/docs"
 
 // checkSecretToken validates the Telegram secret token header.
@@ -62,7 +66,16 @@ func checkSecretToken(r *http.Request, expected string, l *slog.Logger) bool {
 }
 
 // handleClaim processes user claim: sends prompt to OpenRouter, saves the result and sends it back to Telegram.
-func handleClaim(ctx context.Context, tg TelegramSender, or OpenRouterClient, repo ResultSaver, chatID int64, prompt string) error {
+func handleClaim(ctx context.Context, tg TelegramSender, or OpenRouterClient, repo ResultSaver, limiter RateLimiter, chatID int64, prompt string) error {
+	if len(prompt) > 8000 {
+		return fmt.Errorf("message too long: %d characters", len(prompt))
+	}
+	if !limiter.Allow(chatID) {
+		if err := tg.SendMessage(ctx, chatID, "rate limit exceeded, try again later"); err != nil {
+			return err
+		}
+		return nil
+	}
 	resp, err := or.ChatCompletion(ctx, prompt)
 	if err != nil {
 		slog.Error("openrouter", "err", err)

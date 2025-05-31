@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"log/slog"
@@ -45,6 +46,10 @@ type mockRepo struct {
 	err     error
 }
 
+type mockLimiter struct{ ok bool }
+
+func (m *mockLimiter) Allow(id int64) bool { return m.ok }
+
 func (m *mockRepo) SaveResult(ctx context.Context, chatID int64, data string) (int64, error) {
 	m.chatID = chatID
 	m.data = data
@@ -65,8 +70,9 @@ func TestHandleClaimSuccess(t *testing.T) {
 	tg := &mockTelegram{}
 	or := &mockOpenRouter{resp: "ok"}
 	repo := &mockRepo{id: 1}
+	lim := &mockLimiter{ok: true}
 	ctx := context.Background()
-	if err := handleClaim(ctx, tg, or, repo, 123, "hi"); err != nil {
+	if err := handleClaim(ctx, tg, or, repo, lim, 123, "hi"); err != nil {
 		t.Fatal(err)
 	}
 	if or.prompt != "hi" {
@@ -84,7 +90,8 @@ func TestHandleClaimOpenRouterError(t *testing.T) {
 	tg := &mockTelegram{}
 	or := &mockOpenRouter{err: errors.New("boom")}
 	repo := &mockRepo{}
-	if err := handleClaim(context.Background(), tg, or, repo, 1, "hi"); err != nil {
+	lim := &mockLimiter{ok: true}
+	if err := handleClaim(context.Background(), tg, or, repo, lim, 1, "hi"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if repo.data != "" {
@@ -99,7 +106,8 @@ func TestHandleClaimRepoError(t *testing.T) {
 	tg := &mockTelegram{}
 	or := &mockOpenRouter{resp: "x"}
 	repo := &mockRepo{err: errors.New("db")}
-	if err := handleClaim(context.Background(), tg, or, repo, 1, "hi"); err != nil {
+	lim := &mockLimiter{ok: true}
+	if err := handleClaim(context.Background(), tg, or, repo, lim, 1, "hi"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if repo.chatID != 1 || repo.data != "x" {
@@ -114,7 +122,8 @@ func TestHandleClaimTelegramError(t *testing.T) {
 	tg := &mockTelegram{err: errors.New("tg")}
 	or := &mockOpenRouter{resp: "x"}
 	repo := &mockRepo{}
-	if err := handleClaim(context.Background(), tg, or, repo, 1, "hi"); err == nil {
+	lim := &mockLimiter{ok: true}
+	if err := handleClaim(context.Background(), tg, or, repo, lim, 1, "hi"); err == nil {
 		t.Fatal("expected error")
 	}
 }
@@ -198,5 +207,32 @@ func TestCheckSecretTokenMismatch(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	if checkSecretToken(r, "good", logger) {
 		t.Fatalf("expected mismatch")
+	}
+}
+
+func TestHandleClaimTooLong(t *testing.T) {
+	tg := &mockTelegram{}
+	or := &mockOpenRouter{}
+	repo := &mockRepo{}
+	lim := &mockLimiter{ok: true}
+	long := strings.Repeat("a", 8001)
+	if err := handleClaim(context.Background(), tg, or, repo, lim, 1, long); err == nil {
+		t.Fatalf("expected length error")
+	}
+}
+
+func TestHandleClaimRateLimit(t *testing.T) {
+	tg := &mockTelegram{}
+	or := &mockOpenRouter{}
+	repo := &mockRepo{}
+	lim := &mockLimiter{ok: false}
+	if err := handleClaim(context.Background(), tg, or, repo, lim, 1, "hi"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tg.text != "rate limit exceeded, try again later" {
+		t.Fatalf("unexpected message %s", tg.text)
+	}
+	if or.prompt != "" {
+		t.Fatalf("openrouter should not be called")
 	}
 }
