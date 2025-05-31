@@ -184,3 +184,8 @@ git clone https://github.com/owner/legalbot.git
 cd legalbot
 cp .env.example .env
 docker compose up --build
+
+НАСТРОЙКИ ПУЛА СОЕДИНЕНИЙ
+- MaxConnIdleTime: 5 мин
+- MaxConnLifetime: 1 час
+
