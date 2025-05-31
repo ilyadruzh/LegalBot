@@ -36,6 +36,12 @@ cp .env.example .env
 docker compose up --build
 ```
 
+## Linting
+```bash
+make lint
+```
+Uses `golangci-lint` with settings in `.golangci.yml`.
+
 ## Deployment
 Automated deployment is handled by GitHub Actions. Secrets such as the server
 IP address and SSH key are stored in HashiCorp Vault. The workflow reads these
