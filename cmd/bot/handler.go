@@ -65,10 +65,18 @@ func checkSecretToken(r *http.Request, expected string, l *slog.Logger) bool {
 func handleClaim(ctx context.Context, tg TelegramSender, or OpenRouterClient, repo ResultSaver, chatID int64, prompt string) error {
 	resp, err := or.ChatCompletion(ctx, prompt)
 	if err != nil {
-		return err
+		slog.Error("openrouter", "err", err)
+		if sendErr := tg.SendMessage(ctx, chatID, "temporary error, please try again later"); sendErr != nil {
+			return sendErr
+		}
+		return nil
 	}
 	if _, err := repo.SaveResult(ctx, chatID, resp); err != nil {
-		return err
+		slog.Error("db save", "err", err)
+		if sendErr := tg.SendMessage(ctx, chatID, "temporary error, please try again later"); sendErr != nil {
+			return sendErr
+		}
+		return nil
 	}
 	if err := tg.SendMessage(ctx, chatID, resp); err != nil {
 		return err
@@ -80,7 +88,11 @@ func handleClaim(ctx context.Context, tg TelegramSender, or OpenRouterClient, re
 func handleRecent(ctx context.Context, tg TelegramSender, repo ResultFetcher, chatID int64) error {
 	res, err := repo.RecentResults(ctx, chatID, 5)
 	if err != nil {
-		return err
+		slog.Error("db recent", "err", err)
+		if sendErr := tg.SendMessage(ctx, chatID, "temporary error, please try again later"); sendErr != nil {
+			return sendErr
+		}
+		return nil
 	}
 	for _, r := range res {
 		link := fmt.Sprintf("%s/%d", docsBaseURL, r.ID)
@@ -94,7 +106,11 @@ func handleRecent(ctx context.Context, tg TelegramSender, repo ResultFetcher, ch
 // handleDelete removes chat history.
 func handleDelete(ctx context.Context, tg TelegramSender, repo HistoryDeleter, chatID int64) error {
 	if err := repo.DeleteHistory(ctx, chatID); err != nil {
-		return err
+		slog.Error("db delete", "err", err)
+		if sendErr := tg.SendMessage(ctx, chatID, "temporary error, please try again later"); sendErr != nil {
+			return sendErr
+		}
+		return nil
 	}
 	return tg.SendMessage(ctx, chatID, "history deleted")
 }

@@ -84,11 +84,14 @@ func TestHandleClaimOpenRouterError(t *testing.T) {
 	tg := &mockTelegram{}
 	or := &mockOpenRouter{err: errors.New("boom")}
 	repo := &mockRepo{}
-	if err := handleClaim(context.Background(), tg, or, repo, 1, "hi"); err == nil {
-		t.Fatal("expected error")
+	if err := handleClaim(context.Background(), tg, or, repo, 1, "hi"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if repo.data != "" || tg.text != "" {
-		t.Errorf("unexpected calls")
+	if repo.data != "" {
+		t.Errorf("repo should not be called")
+	}
+	if tg.text != "temporary error, please try again later" {
+		t.Errorf("unexpected message %s", tg.text)
 	}
 }
 
@@ -96,11 +99,14 @@ func TestHandleClaimRepoError(t *testing.T) {
 	tg := &mockTelegram{}
 	or := &mockOpenRouter{resp: "x"}
 	repo := &mockRepo{err: errors.New("db")}
-	if err := handleClaim(context.Background(), tg, or, repo, 1, "hi"); err == nil {
-		t.Fatal("expected error")
+	if err := handleClaim(context.Background(), tg, or, repo, 1, "hi"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if tg.text != "" {
-		t.Errorf("telegram should not be called")
+	if repo.chatID != 1 || repo.data != "x" {
+		t.Errorf("repo not called correctly")
+	}
+	if tg.text != "temporary error, please try again later" {
+		t.Errorf("unexpected message %s", tg.text)
 	}
 }
 
@@ -141,6 +147,17 @@ func TestHandleRecent(t *testing.T) {
 	}
 }
 
+func TestHandleRecentRepoError(t *testing.T) {
+	tg := &mockTelegram{}
+	repo := &mockRepo{err: errors.New("db")}
+	if err := handleRecent(context.Background(), tg, repo, 10); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tg.text != "temporary error, please try again later" {
+		t.Errorf("unexpected message %s", tg.text)
+	}
+}
+
 func TestHandleDelete(t *testing.T) {
 	tg := &mockTelegram{}
 	repo := &mockRepo{}
@@ -152,6 +169,17 @@ func TestHandleDelete(t *testing.T) {
 	}
 	if repo.chatID != 20 {
 		t.Fatalf("repo not called")
+	}
+}
+
+func TestHandleDeleteRepoError(t *testing.T) {
+	tg := &mockTelegram{}
+	repo := &mockRepo{err: errors.New("db")}
+	if err := handleDelete(context.Background(), tg, repo, 99); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tg.text != "temporary error, please try again later" {
+		t.Errorf("unexpected message %s", tg.text)
 	}
 }
 
