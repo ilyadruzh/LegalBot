@@ -99,25 +99,36 @@ go-version: '1.22'
   - name: Build Docker image  
     run: docker build -f deploy/Dockerfile.bot -t $REGISTRY/$IMAGE_NAME:${{ github.sha }} .  
 
-  - name: Push to GHCR  
-    uses: docker/login-action@v3  
-    with:  
-      registry: ${{ env.REGISTRY }}  
-      username: ${{ github.actor }}  
-      password: ${{ secrets.GITHUB_TOKEN }}  
+  - name: Push to GHCR
+    uses: docker/login-action@v3
+    with:
+      registry: ${{ env.REGISTRY }}
+      username: ${{ github.actor }}
+      password: ${{ secrets.GITHUB_TOKEN }}
 
-  - run: docker push $REGISTRY/$IMAGE_NAME:${{ github.sha }}  
+  - run: docker push $REGISTRY/$IMAGE_NAME:${{ github.sha }}
 
-  - name: Deploy via SSH & docker compose  
-    uses: appleboy/ssh-action@v1.0.0  
-    with:  
-      host: ${{ secrets.SERVER_IP }}  
-      username: deploy  
-      key: ${{ secrets.SERVER_SSH_KEY }}  
-      script: |  
-        cd /opt/legalbot  
-        docker pull $REGISTRY/$IMAGE_NAME:${{ github.sha }}  
-        docker compose down  
+  - name: Read secrets from Vault
+    uses: hashicorp/vault-action@v2
+    with:
+      url: ${{ secrets.VAULT_ADDR }}
+      method: approle
+      roleId: ${{ secrets.VAULT_ROLE_ID }}
+      secretId: ${{ secrets.VAULT_SECRET_ID }}
+      secrets: |
+        secret/data/legalbot SERVER_IP;
+        secret/data/legalbot SERVER_SSH_KEY;
+
+  - name: Deploy via SSH & docker compose
+    uses: appleboy/ssh-action@v1.0.0
+    with:
+      host: ${{ env.SERVER_IP }}
+      username: deploy
+      key: ${{ env.SERVER_SSH_KEY }}
+      script: |
+        cd /opt/legalbot
+        docker pull $REGISTRY/$IMAGE_NAME:${{ github.sha }}
+        docker compose down
         IMAGE_TAG=${{ github.sha }} docker compose up -d
 
 ВЫДЕРЖКА docker-compose.yml

@@ -35,3 +35,14 @@ LegalBot is a Telegram bot for assisting users with legal claims in Russia. It c
 cp .env.example .env
 docker compose up --build
 ```
+
+## Deployment
+Automated deployment is handled by GitHub Actions. Secrets such as the server
+IP address and SSH key are stored in HashiCorp Vault. The workflow reads these
+values using `hashicorp/vault-action@v2` and then performs an SSH deployment via
+`appleboy/ssh-action`.
+
+Configure Vault with `SERVER_IP` and `SERVER_SSH_KEY` keys under the
+`secret/data/legalbot` path. Provide `VAULT_ADDR`, `VAULT_ROLE_ID` and
+`VAULT_SECRET_ID` as GitHub repository secrets so the workflow can fetch the
+credentials during the deploy job.
