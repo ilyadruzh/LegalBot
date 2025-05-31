@@ -3,7 +3,11 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
 	"testing"
+
+	"log/slog"
 
 	"legalbot/internal/db"
 )
@@ -148,5 +152,23 @@ func TestHandleDelete(t *testing.T) {
 	}
 	if repo.chatID != 20 {
 		t.Fatalf("repo not called")
+	}
+}
+
+func TestCheckSecretTokenMatch(t *testing.T) {
+	r, _ := http.NewRequest(http.MethodPost, "/", nil)
+	r.Header.Set("X-Telegram-Bot-Api-Secret-Token", "a")
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if !checkSecretToken(r, "a", logger) {
+		t.Fatalf("expected token match")
+	}
+}
+
+func TestCheckSecretTokenMismatch(t *testing.T) {
+	r, _ := http.NewRequest(http.MethodPost, "/", nil)
+	r.Header.Set("X-Telegram-Bot-Api-Secret-Token", "bad")
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if checkSecretToken(r, "good", logger) {
+		t.Fatalf("expected mismatch")
 	}
 }

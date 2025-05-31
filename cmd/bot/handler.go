@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
+	"log/slog"
+	"net/http"
 
 	"legalbot/internal/db"
 )
@@ -44,6 +47,19 @@ type HistoryDeleter interface {
 }
 
 var docsBaseURL = "https://example.com/docs"
+
+// checkSecretToken validates the Telegram secret token header.
+// It returns true if the header matches the expected token.
+func checkSecretToken(r *http.Request, expected string, l *slog.Logger) bool {
+	token := r.Header.Get("X-Telegram-Bot-Api-Secret-Token")
+	if subtle.ConstantTimeCompare([]byte(token), []byte(expected)) != 1 {
+		if l != nil {
+			l.Warn("invalid secret token", "remote", r.RemoteAddr)
+		}
+		return false
+	}
+	return true
+}
 
 // handleClaim processes user claim: sends prompt to OpenRouter, saves the result and sends it back to Telegram.
 func handleClaim(ctx context.Context, tg TelegramSender, or OpenRouterClient, repo ResultSaver, chatID int64, prompt string) error {
