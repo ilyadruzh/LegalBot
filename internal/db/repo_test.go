@@ -150,6 +150,44 @@ func TestRepository_Delete_Memory(t *testing.T) {
 	}
 }
 
+func TestRepository_RecentResults_Memory(t *testing.T) {
+	pool, _ := pgxpool.NewWithConfig(context.Background(), &pgxpool.Config{})
+	repo := &Repository{pool: pool}
+	for i := 0; i < 3; i++ {
+		if _, err := repo.SaveResult(context.Background(), 5, fmt.Sprintf("r%v", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	res, err := repo.RecentResults(context.Background(), 5, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(res))
+	}
+	if res[0].Data == res[1].Data {
+		t.Fatalf("results not ordered")
+	}
+}
+
+func TestRepository_DeleteHistory_Memory(t *testing.T) {
+	pool, _ := pgxpool.NewWithConfig(context.Background(), &pgxpool.Config{})
+	repo := &Repository{pool: pool}
+	if _, err := repo.SaveResult(context.Background(), 7, "x"); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.DeleteHistory(context.Background(), 7); err != nil {
+		t.Fatal(err)
+	}
+	res, err := repo.RecentResults(context.Background(), 7, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 0 {
+		t.Fatalf("expected no results after delete")
+	}
+}
+
 func TestRepository_WithLogger(t *testing.T) {
 	pool, _ := pgxpool.NewWithConfig(context.Background(), &pgxpool.Config{})
 	repo := &Repository{pool: pool}

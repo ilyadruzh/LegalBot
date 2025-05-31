@@ -4,17 +4,21 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"legalbot/internal/db"
 )
 
 type mockTelegram struct {
-	chatID int64
-	text   string
-	err    error
+	chatID   int64
+	text     string
+	messages []string
+	err      error
 }
 
 func (m *mockTelegram) SendMessage(ctx context.Context, chatID int64, text string) error {
 	m.chatID = chatID
 	m.text = text
+	m.messages = append(m.messages, text)
 	return m.err
 }
 
@@ -30,16 +34,27 @@ func (m *mockOpenRouter) ChatCompletion(ctx context.Context, prompt string) (str
 }
 
 type mockRepo struct {
-	chatID int64
-	data   string
-	id     int64
-	err    error
+	chatID  int64
+	data    string
+	id      int64
+	results []db.Result
+	err     error
 }
 
 func (m *mockRepo) SaveResult(ctx context.Context, chatID int64, data string) (int64, error) {
 	m.chatID = chatID
 	m.data = data
 	return m.id, m.err
+}
+
+func (m *mockRepo) RecentResults(ctx context.Context, chatID int64, limit int) ([]db.Result, error) {
+	m.chatID = chatID
+	return m.results, m.err
+}
+
+func (m *mockRepo) DeleteHistory(ctx context.Context, chatID int64) error {
+	m.chatID = chatID
+	return m.err
 }
 
 func TestHandleClaimSuccess(t *testing.T) {
@@ -104,5 +119,34 @@ func TestHandleLang(t *testing.T) {
 func TestLangForDefault(t *testing.T) {
 	if langFor(99) != "en" {
 		t.Fatalf("expected default en")
+	}
+}
+
+func TestHandleRecent(t *testing.T) {
+	tg := &mockTelegram{}
+	repo := &mockRepo{results: []db.Result{{ID: 1}, {ID: 2}}}
+	docsBaseURL = "http://d"
+	if err := handleRecent(context.Background(), tg, repo, 10); err != nil {
+		t.Fatal(err)
+	}
+	if len(tg.messages) != 2 {
+		t.Fatalf("expected 2 messages")
+	}
+	if tg.messages[0] != "http://d/1" {
+		t.Fatalf("unexpected message %s", tg.messages[0])
+	}
+}
+
+func TestHandleDelete(t *testing.T) {
+	tg := &mockTelegram{}
+	repo := &mockRepo{}
+	if err := handleDelete(context.Background(), tg, repo, 20); err != nil {
+		t.Fatal(err)
+	}
+	if tg.text != "history deleted" {
+		t.Fatalf("unexpected text %s", tg.text)
+	}
+	if repo.chatID != 20 {
+		t.Fatalf("repo not called")
 	}
 }

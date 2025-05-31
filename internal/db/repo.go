@@ -94,3 +94,39 @@ func (r *Repository) DeleteResult(ctx context.Context, id int64) error {
 	}
 	return nil
 }
+
+// RecentResults returns last N results for a chat ordered from newest to oldest.
+func (r *Repository) RecentResults(ctx context.Context, chatID int64, limit int) ([]Result, error) {
+	rows, err := r.pool.Query(ctx, `SELECT id, chat_id, data, created_at FROM bot_results WHERE chat_id=$1 ORDER BY created_at DESC LIMIT $2`, chatID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("recent results: %w", err)
+	}
+	defer rows.Close()
+	var res []Result
+	for rows.Next() {
+		var rres Result
+		if err := rows.Scan(&rres.ID, &rres.ChatID, &rres.Data, &rres.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan result: %w", err)
+		}
+		res = append(res, rres)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows: %w", err)
+	}
+	if r.Logger != nil {
+		r.Logger.Info("recent results fetched", "chat_id", chatID, "count", len(res))
+	}
+	return res, nil
+}
+
+// DeleteHistory removes all results for a chat.
+func (r *Repository) DeleteHistory(ctx context.Context, chatID int64) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM bot_results WHERE chat_id=$1`, chatID)
+	if err != nil {
+		return fmt.Errorf("delete history: %w", err)
+	}
+	if r.Logger != nil {
+		r.Logger.Info("chat history deleted", "chat_id", chatID)
+	}
+	return nil
+}
