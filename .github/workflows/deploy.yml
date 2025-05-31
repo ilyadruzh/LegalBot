@@ -8,7 +8,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository }}-bot
+      IMAGE_BOT: ${{ github.repository }}-bot
+      IMAGE_WORKER: ${{ github.repository }}-worker
+      IMAGE_PROMPT: ${{ github.repository }}-prompt
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -22,8 +24,11 @@ jobs:
       - name: Run tests
         run: make test
 
-      - name: Build Docker image
-        run: docker build -f deploy/Dockerfile.bot -t $REGISTRY/$IMAGE_NAME:${{ github.sha }} .
+      - name: Build Docker images
+        run: |
+          docker build -f deploy/Dockerfile.bot -t $REGISTRY/$IMAGE_BOT:${{ github.sha }} .
+          docker build -f deploy/Dockerfile.worker -t $REGISTRY/$IMAGE_WORKER:${{ github.sha }} .
+          docker build -f deploy/Dockerfile.prompt -t $REGISTRY/$IMAGE_PROMPT:${{ github.sha }} .
 
       - name: Push to GHCR
         uses: docker/login-action@v3
@@ -32,7 +37,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - run: docker push $REGISTRY/$IMAGE_NAME:${{ github.sha }}
+      - run: |
+          docker push $REGISTRY/$IMAGE_BOT:${{ github.sha }}
+          docker push $REGISTRY/$IMAGE_WORKER:${{ github.sha }}
+          docker push $REGISTRY/$IMAGE_PROMPT:${{ github.sha }}
 
       - name: Read secrets from Vault
         uses: hashicorp/vault-action@v2
@@ -53,6 +61,7 @@ jobs:
           key: ${{ env.SERVER_SSH_KEY }}
           script: |
             cd /opt/legalbot
-            docker pull $REGISTRY/$IMAGE_NAME:${{ github.sha }}
-            docker compose down
-            IMAGE_TAG=${{ github.sha }} docker compose up -d
+            docker pull $REGISTRY/$IMAGE_BOT:${{ github.sha }}
+            docker pull $REGISTRY/$IMAGE_WORKER:${{ github.sha }}
+            docker pull $REGISTRY/$IMAGE_PROMPT:${{ github.sha }}
+            IMAGE_TAG=${{ github.sha }} docker compose up -d bot worker prompt
