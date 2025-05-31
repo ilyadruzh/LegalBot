@@ -52,6 +52,8 @@ type RateLimiter interface {
 
 var docsBaseURL = "https://example.com/docs"
 
+const temporaryErrorMsg = "temporary error, please try again later"
+
 // checkSecretToken validates the Telegram secret token header.
 // It returns true if the header matches the expected token.
 func checkSecretToken(r *http.Request, expected string, l *slog.Logger) bool {
@@ -79,14 +81,14 @@ func handleClaim(ctx context.Context, tg TelegramSender, or OpenRouterClient, re
 	resp, err := or.ChatCompletion(ctx, prompt)
 	if err != nil {
 		slog.Error("openrouter", "err", err)
-		if sendErr := tg.SendMessage(ctx, chatID, "temporary error, please try again later"); sendErr != nil {
+		if sendErr := tg.SendMessage(ctx, chatID, temporaryErrorMsg); sendErr != nil {
 			return sendErr
 		}
 		return nil
 	}
 	if _, err := repo.SaveResult(ctx, chatID, resp); err != nil {
 		slog.Error("db save", "err", err)
-		if sendErr := tg.SendMessage(ctx, chatID, "temporary error, please try again later"); sendErr != nil {
+		if sendErr := tg.SendMessage(ctx, chatID, temporaryErrorMsg); sendErr != nil {
 			return sendErr
 		}
 		return nil
@@ -102,7 +104,7 @@ func handleRecent(ctx context.Context, tg TelegramSender, repo ResultFetcher, ch
 	res, err := repo.RecentResults(ctx, chatID, 5)
 	if err != nil {
 		slog.Error("db recent", "err", err)
-		if sendErr := tg.SendMessage(ctx, chatID, "temporary error, please try again later"); sendErr != nil {
+		if sendErr := tg.SendMessage(ctx, chatID, temporaryErrorMsg); sendErr != nil {
 			return sendErr
 		}
 		return nil
@@ -120,7 +122,7 @@ func handleRecent(ctx context.Context, tg TelegramSender, repo ResultFetcher, ch
 func handleDelete(ctx context.Context, tg TelegramSender, repo HistoryDeleter, chatID int64) error {
 	if err := repo.DeleteHistory(ctx, chatID); err != nil {
 		slog.Error("db delete", "err", err)
-		if sendErr := tg.SendMessage(ctx, chatID, "temporary error, please try again later"); sendErr != nil {
+		if sendErr := tg.SendMessage(ctx, chatID, temporaryErrorMsg); sendErr != nil {
 			return sendErr
 		}
 		return nil
