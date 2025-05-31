@@ -93,3 +93,16 @@ func TestHandleClaimTelegramError(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestHandleLang(t *testing.T) {
+	handleLang(1, "ru")
+	if langFor(1) != "ru" {
+		t.Fatalf("expected ru, got %s", langFor(1))
+	}
+}
+
+func TestLangForDefault(t *testing.T) {
+	if langFor(99) != "en" {
+		t.Fatalf("expected default en")
+	}
+}

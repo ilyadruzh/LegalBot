@@ -4,6 +4,22 @@ import (
 	"context"
 )
 
+// langPref stores user language preferences.
+var langPref = map[int64]string{}
+
+// handleLang changes the language preference for a chat.
+func handleLang(chatID int64, lang string) {
+	langPref[chatID] = lang
+}
+
+// langFor returns language preference or default "en".
+func langFor(chatID int64) string {
+	if l, ok := langPref[chatID]; ok {
+		return l
+	}
+	return "en"
+}
+
 type TelegramSender interface {
 	SendMessage(ctx context.Context, chatID int64, text string) error
 }

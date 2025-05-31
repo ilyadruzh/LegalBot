@@ -1,10 +1,27 @@
 package help
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
-func TestMessage(t *testing.T) {
-	msg := Message()
-	if len(msg) == 0 || msg[0] != 'A' {
+func TestMessageEN(t *testing.T) {
+	msg := Message("en")
+	if !strings.HasPrefix(msg, "Available") {
 		t.Errorf("unexpected message: %q", msg)
+	}
+}
+
+func TestMessageRU(t *testing.T) {
+	msg := Message("ru")
+	if !strings.HasPrefix(msg, "Доступные") {
+		t.Errorf("unexpected message: %q", msg)
+	}
+}
+
+func TestMessageDefault(t *testing.T) {
+	msg := Message("unknown")
+	if !strings.HasPrefix(msg, "Available") {
+		t.Errorf("fallback not used: %q", msg)
 	}
 }
