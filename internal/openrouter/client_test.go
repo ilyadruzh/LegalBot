@@ -23,11 +23,7 @@ func TestChatCompletionSuccess(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	old := endpoint
-	endpoint = srv.URL
-	defer func() { endpoint = old }()
-
-	c := New("Bearer test")
+	c := NewWithOptions("Bearer test", WithEndpoint(srv.URL))
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	body, err := c.ChatCompletion(ctx, "{}")
@@ -45,11 +41,7 @@ func TestChatCompletionError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	old := endpoint
-	endpoint = srv.URL
-	defer func() { endpoint = old }()
-
-	c := New("key")
+	c := NewWithOptions("key", WithEndpoint(srv.URL))
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	_, err := c.ChatCompletion(ctx, "{}")

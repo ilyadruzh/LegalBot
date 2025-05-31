@@ -12,8 +12,9 @@ import (
 
 // Client calls the OpenRouter API.
 type Client struct {
-	APIKey string
-	HTTP   *http.Client
+	APIKey   string
+	Endpoint string
+	HTTP     *http.Client
 }
 
 // New creates a new OpenRouter client using the provided API key. Timeout can be
@@ -26,13 +27,22 @@ func New(apiKey string) *Client {
 			timeout = d
 		}
 	}
-	return &Client{APIKey: apiKey, HTTP: &http.Client{Timeout: timeout}}
+	endpoint := defaultEndpoint
+	if v := os.Getenv("OPENROUTER_ENDPOINT"); v != "" {
+		endpoint = v
+	}
+	return &Client{APIKey: apiKey, Endpoint: endpoint, HTTP: &http.Client{Timeout: timeout}}
 }
 
 // WithTimeout allows customizing HTTP client timeout when creating a new
 // client.
 func WithTimeout(d time.Duration) func(*Client) {
 	return func(c *Client) { c.HTTP.Timeout = d }
+}
+
+// WithEndpoint allows customizing API endpoint when creating a new client.
+func WithEndpoint(u string) func(*Client) {
+	return func(c *Client) { c.Endpoint = u }
 }
 
 // NewWithOptions creates a new client and applies given options.
@@ -44,11 +54,11 @@ func NewWithOptions(apiKey string, opts ...func(*Client)) *Client {
 	return c
 }
 
-var endpoint = "https://openrouter.ai/v1/chat/completions"
+var defaultEndpoint = "https://openrouter.ai/v1/chat/completions"
 
 // ChatCompletion sends a prompt and returns the response.
 func (c *Client) ChatCompletion(ctx context.Context, prompt string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBufferString(prompt))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Endpoint, bytes.NewBufferString(prompt))
 	if err != nil {
 		return "", err
 	}
