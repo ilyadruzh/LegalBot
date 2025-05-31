@@ -1,0 +1,41 @@
+version: "3.9"
+services:
+  bot:
+    image: ghcr.io/owner/legalbot-bot:${IMAGE_TAG:-latest}
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - rabbitmq
+    restart: always
+
+  prompt:
+    image: ghcr.io/owner/legalbot-prompt:${IMAGE_TAG:-latest}
+    env_file:
+      - .env
+    restart: always
+
+  worker:
+    image: ghcr.io/owner/legalbot-worker:${IMAGE_TAG:-latest}
+    env_file:
+      - .env
+    depends_on:
+      - rabbitmq
+      - postgres
+    restart: always
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: legalbot
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+
+  grafana:
+    image: grafana/grafana
+
+volumes:
+  db_data:
