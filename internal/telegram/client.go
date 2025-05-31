@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,13 +25,13 @@ func New(token string) *Client {
 var apiURL = "https://api.telegram.org"
 
 // SendMessage sends a text message.
-func (c *Client) SendMessage(chatID int64, text string) error {
+func (c *Client) SendMessage(ctx context.Context, chatID int64, text string) error {
 	u := fmt.Sprintf("%s/bot%s/sendMessage", apiURL, c.Token)
 	data := url.Values{}
 	data.Set("chat_id", strconv.FormatInt(chatID, 10))
 	data.Set("text", text)
 
-	req, err := http.NewRequest(http.MethodPost, u, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, strings.NewReader(data.Encode()))
 	if err != nil {
 		return err
 	}

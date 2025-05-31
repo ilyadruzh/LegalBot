@@ -1,10 +1,12 @@
 package telegram
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSendMessageSuccess(t *testing.T) {
@@ -32,7 +34,9 @@ func TestSendMessageSuccess(t *testing.T) {
 	defer func() { apiURL = old }()
 
 	c := New("TOKEN")
-	if err := c.SendMessage(chatID, text); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := c.SendMessage(ctx, chatID, text); err != nil {
 		t.Fatalf("SendMessage returned error: %v", err)
 	}
 }
@@ -48,7 +52,9 @@ func TestSendMessageError(t *testing.T) {
 	defer func() { apiURL = old }()
 
 	c := New("TOKEN")
-	err := c.SendMessage(1, "hi")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	err := c.SendMessage(ctx, 1, "hi")
 	if err == nil || !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("expected error containing boom, got %v", err)
 	}
