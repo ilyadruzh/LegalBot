@@ -2,7 +2,8 @@ package main
 
 import (
 	"flag"
-	"log"
+	"log/slog"
+	"os"
 	"time"
 )
 
@@ -10,8 +11,10 @@ func main() {
 	queue := flag.String("queue", "amqp://guest:guest@localhost:5672/", "AMQP URL")
 	flag.Parse()
 
-	log.Printf("starting worker, queue=%s", *queue)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+	logger.Info("starting worker", "queue", *queue)
 	for range time.Tick(time.Second) {
-		log.Println("worker tick")
+		logger.Info("worker tick")
 	}
 }

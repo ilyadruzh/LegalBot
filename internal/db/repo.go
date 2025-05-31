@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
 
@@ -11,7 +12,8 @@ import (
 
 // Repository provides access to Postgres.
 type Repository struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	Logger *slog.Logger
 }
 
 // New creates a new repository using DSN from POSTGRES_DSN.
@@ -24,15 +26,20 @@ func New(ctx context.Context) (*Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-       cfg.MaxConns = 4
-       cfg.AcquireTimeout = 5 * time.Second
-       cfg.MaxConnIdleTime = 5 * time.Minute
-       cfg.MaxConnLifetime = time.Hour
+	cfg.MaxConns = 4
+	cfg.AcquireTimeout = 5 * time.Second
+	cfg.MaxConnIdleTime = 5 * time.Minute
+	cfg.MaxConnLifetime = time.Hour
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	return &Repository{pool: pool}, nil
+	return &Repository{pool: pool, Logger: slog.Default()}, nil
+}
+
+// WithLogger allows setting a custom logger when creating a repository.
+func WithLogger(l *slog.Logger) func(*Repository) {
+	return func(r *Repository) { r.Logger = l }
 }
 
 // Close closes underlying pool.
@@ -52,7 +59,13 @@ type Result struct {
 func (r *Repository) SaveResult(ctx context.Context, chatID int64, data string) (int64, error) {
 	var id int64
 	err := r.pool.QueryRow(ctx, `INSERT INTO bot_results (chat_id, data) VALUES ($1, $2) RETURNING id`, chatID, data).Scan(&id)
-	return id, err
+	if err != nil {
+		return 0, fmt.Errorf("save result: %w", err)
+	}
+	if r.Logger != nil {
+		r.Logger.Info("result saved", "chat_id", chatID)
+	}
+	return id, nil
 }
 
 // GetResult retrieves result by ID.
@@ -62,7 +75,10 @@ func (r *Repository) GetResult(ctx context.Context, id int64) (*Result, error) {
 		&res.ID, &res.ChatID, &res.Data, &res.CreatedAt,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get result: %w", err)
+	}
+	if r.Logger != nil {
+		r.Logger.Info("result retrieved", "chat_id", res.ChatID)
 	}
 	return &res, nil
 }
@@ -70,5 +86,11 @@ func (r *Repository) GetResult(ctx context.Context, id int64) (*Result, error) {
 // DeleteResult removes a result and returns an error if any.
 func (r *Repository) DeleteResult(ctx context.Context, id int64) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM bot_results WHERE id=$1`, id)
-	return err
+	if err != nil {
+		return fmt.Errorf("delete result: %w", err)
+	}
+	if r.Logger != nil {
+		r.Logger.Info("result deleted", "id", id)
+	}
+	return nil
 }
