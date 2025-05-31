@@ -3,14 +3,21 @@ package db
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
+	"os/exec"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	tc "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 func TestRepository_SaveAndGet(t *testing.T) {
+	if _, err := exec.LookPath("docker"); err != nil {
+		t.Skip("docker not installed")
+	}
 	ctx := context.Background()
 	container, err := tc.GenericContainer(ctx, tc.GenericContainerRequest{
 		ContainerRequest: tc.ContainerRequest{
@@ -60,7 +67,26 @@ func TestRepository_SaveAndGet(t *testing.T) {
 	}
 }
 
+func TestRepository_SaveAndGet_Memory(t *testing.T) {
+	pool, _ := pgxpool.NewWithConfig(context.Background(), &pgxpool.Config{})
+	repo := &Repository{pool: pool}
+	id, err := repo.SaveResult(context.Background(), 1, "data")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := repo.GetResult(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ChatID != 1 || got.Data != "data" {
+		t.Fatalf("unexpected result: %+v", got)
+	}
+}
+
 func TestRepository_Delete(t *testing.T) {
+	if _, err := exec.LookPath("docker"); err != nil {
+		t.Skip("docker not installed")
+	}
 	ctx := context.Background()
 	container, err := tc.GenericContainer(ctx, tc.GenericContainerRequest{
 		ContainerRequest: tc.ContainerRequest{
@@ -106,5 +132,38 @@ func TestRepository_Delete(t *testing.T) {
 	}
 	if _, err := repo.GetResult(ctx, id); err == nil {
 		t.Fatalf("expected error after delete")
+	}
+}
+
+func TestRepository_Delete_Memory(t *testing.T) {
+	pool, _ := pgxpool.NewWithConfig(context.Background(), &pgxpool.Config{})
+	repo := &Repository{pool: pool}
+	id, err := repo.SaveResult(context.Background(), 2, "foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.DeleteResult(context.Background(), id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.GetResult(context.Background(), id); err == nil {
+		t.Fatalf("expected error after delete")
+	}
+}
+
+func TestRepository_WithLogger(t *testing.T) {
+	pool, _ := pgxpool.NewWithConfig(context.Background(), &pgxpool.Config{})
+	repo := &Repository{pool: pool}
+	l := slog.New(slog.NewTextHandler(io.Discard, nil))
+	WithLogger(l)(repo)
+	if repo.Logger != l {
+		t.Fatal("logger not set")
+	}
+	repo.Close()
+}
+
+func TestRepository_New_Error(t *testing.T) {
+	os.Unsetenv("POSTGRES_DSN")
+	if _, err := New(context.Background()); err == nil {
+		t.Fatal("expected error")
 	}
 }
