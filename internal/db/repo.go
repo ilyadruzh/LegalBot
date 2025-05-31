@@ -24,8 +24,10 @@ func New(ctx context.Context) (*Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.MaxConns = 4
-	cfg.AcquireTimeout = 5 * time.Second
+       cfg.MaxConns = 4
+       cfg.AcquireTimeout = 5 * time.Second
+       cfg.MaxConnIdleTime = 5 * time.Minute
+       cfg.MaxConnLifetime = time.Hour
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, err
