@@ -38,6 +38,7 @@ func (r *Repository) Close() {
 	r.pool.Close()
 }
 
+// Result represents a saved bot result.
 type Result struct {
 	ID        int64
 	ChatID    int64

@@ -13,6 +13,7 @@ type Client struct {
 	APIKey string
 }
 
+// New creates a new OpenRouter client using the provided API key.
 func New(apiKey string) *Client {
 	return &Client{APIKey: apiKey}
 }
