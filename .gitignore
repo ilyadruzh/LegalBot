@@ -4,9 +4,9 @@
 *.test
 
 # Output of go build
-bot
-worker
-prompt
+/bot
+/worker
+/prompt
 
 # Logs
 *.log
