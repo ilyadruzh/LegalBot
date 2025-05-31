@@ -1,0 +1,15 @@
+# Binaries
+/bin/
+*.exe
+*.test
+
+# Output of go build
+bot
+worker
+prompt
+
+# Logs
+*.log
+
+# Environment
+.env
