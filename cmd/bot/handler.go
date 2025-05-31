@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 
 	"legalbot/internal/db"
 )
@@ -50,7 +51,16 @@ type RateLimiter interface {
 	Allow(chatID int64) bool
 }
 
-var docsBaseURL = "https://example.com/docs"
+// loadDocsBaseURL returns the documentation base URL using the DOCS_BASE_URL
+// environment variable if set, otherwise falling back to the default value.
+func loadDocsBaseURL() string {
+	if v := os.Getenv("DOCS_BASE_URL"); v != "" {
+		return v
+	}
+	return "https://example.com/docs"
+}
+
+var docsBaseURL = loadDocsBaseURL()
 
 const temporaryErrorMsg = "temporary error, please try again later"
 
