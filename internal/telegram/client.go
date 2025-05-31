@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -54,9 +55,27 @@ func (c *Client) SendMessage(ctx context.Context, chatID int64, text string) err
 	}
 	defer resp.Body.Close()
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read body: %w", err)
+	}
+
 	if resp.StatusCode >= http.StatusBadRequest {
-		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("telegram: status %d: %s", resp.StatusCode, string(b))
+		return fmt.Errorf("telegram: status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var r struct {
+		OK          bool   `json:"ok"`
+		Description string `json:"description"`
+	}
+	if err := json.Unmarshal(body, &r); err != nil {
+		return fmt.Errorf("decode response: %w", err)
+	}
+	if !r.OK {
+		if r.Description != "" {
+			return fmt.Errorf("telegram: %s", r.Description)
+		}
+		return fmt.Errorf("telegram: response not ok")
 	}
 
 	if c.Logger != nil {
